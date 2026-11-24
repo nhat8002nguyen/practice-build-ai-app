@@ -1,0 +1,52 @@
+Summary
+We are looking for an experienced AI/LLM Engineer to develop production-ready Retrieval-Augmented Generation (RAG) applications, intelligent AI agents, and automated business workflows.
+
+The ideal candidate should have strong hands-on experience building scalable AI-powered applications using Python, LangChain, LangGraph, OpenAI, Claude, Gemini, vector databases, and automation platforms such as n8n.
+
+Key Responsibilities
+1. Design and develop RAG-based applications using LLMs and vector databases.
+2. Build intelligent AI agents capable of executing multi-step tasks, calling external APIs, and automating business processes.
+3. Implement document ingestion, embeddings, semantic search, hybrid retrieval, and contextual question-answering systems.
+4. Develop AI chatbots and knowledge assistants using internal business documents, websites, PDFs, and databases.
+5. Create automated workflows using n8n, webhooks, REST APIs, and third-party integrations.
+6. Integrate OpenAI, Anthropic Claude, Google Gemini, and other LLM APIs.
+7. Build scalable backend services using Python, FastAPI, and asynchronous processing.
+8. Implement conversation memory, tool calling, structured outputs, and human-in-the-loop workflows.
+9. Improve retrieval accuracy, reduce hallucinations, optimise response latency, and manage API costs.
+10. Deploy, monitor, and maintain AI applications using Docker, AWS, and CI/CD pipelines.
+
+Required Technical Skills
+- AI/LLMs: OpenAI, Claude, Gemini, prompt engineering, function calling
+- RAG Frameworks: LangChain, LangGraph, LlamaIndex
+- Vector Databases: Pinecone, Qdrant, FAISS, Weaviate, ChromaDB
+- Backend: Python, FastAPI, REST APIs
+- AI Automation: n8n, API integrations, webhooks, workflow orchestration
+- Databases: PostgreSQL, Redis, MongoDB
+- Cloud & DevOps: AWS, Docker, GitHub Actions
+- AI Architecture: Multi-agent systems, semantic search, embeddings, document processing
+
+Expected Deliverables
+1. A functional RAG application with document ingestion and knowledge-based querying.
+2. AI agents capable of executing predefined business tasks and interacting with external services.
+3. Automated workflows integrated with relevant business applications and APIs.
+4. Secure, scalable backend APIs and deployment configuration.
+5. Source code, technical documentation, and deployment instructions.
+6. Testing and evaluation covering retrieval relevance, response quality, error handling, and workflow reliability.
+
+Ideal Candidate:
+We are looking for someone who has already built and deployed real-world RAG applications, AI agents, or enterprise AI automation systems.
+
+Strong problem-solving skills, clean architecture, and production deployment experience are essential.
+
+Experience integrating AI solutions with WordPress, Drupal, CRM systems, customer support platforms, or e-commerce applications would be an advantage.
+
+This opportunity may lead to ongoing collaboration on multiple AI development and automation projects.
+
+Questions for Applicants
+1. Describe a production RAG application you have developed. Which LLM, vector database, and framework did you use?
+2. Have you built AI agents using LangGraph or similar orchestration frameworks? Please share an example.
+3. What experience do you have with n8n automation and third-party API integrations?
+4. How do you evaluate RAG accuracy, prevent hallucinations, and optimise token usage?
+5. Please share relevant GitHub repositories, live applications, or portfolio examples.
+
+To apply: Start your proposal with "RAG AI Engineer" and briefly describe your most relevant AI application or automation project. Generic proposals without relevant technical experience will not be prioritised.

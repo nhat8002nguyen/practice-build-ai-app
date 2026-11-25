@@ -34,3 +34,6 @@ yarn-error.log*
 # Local personal artifacts (not part of the product)
 Nhat_Nguyen_Software_Engineer.pdf
 *.pem
+
+# Git worktrees
+.worktrees/

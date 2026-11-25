@@ -1,9 +1,10 @@
 # SMB Support Knowledge Copilot - Learning & Build Design
 
 Date: 2026-11-24  
-Status: Approved design (pending implementation plan)  
+Status: Approved design; implementation plan exists  
 Owner: Nguyễn Văn Nhật  
-Target job shape: Upwork-style RAG / AI agent / automation engineer roles
+Target job shape: Upwork-style RAG / AI agent / automation engineer roles  
+Plan: `docs/superpowers/plans/2026-11-24-smb-support-copilot.md`
 
 ## 1. Purpose
 
@@ -14,8 +15,10 @@ It should also serve at least one real external user.
 Skills must transfer to other RAG and agentic systems, not only this vertical.
 Theory (especially Chip Huyen *AI Engineering*) is paired to each build phase, not binge-read up front.
 
-This project is deliberately **not** "agent builds an app while the human stays shallow."
-Every subsystem must be something the owner can explain cold.
+Agents may scaffold and implement most of the codebase quickly.
+That is encouraged.
+The non-negotiable rule is that Nate must still own every subsystem cold (explain, debug, and defend it in interviews).
+Code speed and mastery cadence are tracked separately.
 
 ## 2. Constraints and starting point
 
@@ -27,8 +30,16 @@ Every subsystem must be something the owner can explain cold.
 
 ### Time and success bar
 
-- Pace: ~20+ hours/week (aggressive).
-- Horizon: roughly 8-12 weeks to a defendable live system.
+Separate **agent build time** from **human mastery time**:
+
+| Track | Cadence | Meaning |
+|-------|---------|---------|
+| Agentic implementation | About 1 dense day (or 2 short sessions) for MVP code per the implementation plan | Scaffold, wiring, tests, clients, Compose, eval scripts |
+| Ownership gates | Same day or next session after each major slice | Nate explains chunking, RAG, graph, n8n, deploy path aloud |
+| Theory (Chip Huyen + docs) | Task-scoped bites when a gate or bug needs them | Not a multi-week reading prelude |
+| Real user + interview polish | Days to a few weeks after MVP runs | Partner docs, retrieval fixes, demo video, mock interviews |
+
+- Nate availability still assumes aggressive focus (~20+ hrs/week) when polishing, onboarding a user, and drilling interviews.
 - Success requires all of:
   - Public live app (API + admin) and React Native demo.
   - GitHub + write-up that answers the target JD application questions from this system.
@@ -194,54 +205,59 @@ Re-measure retrieval hit rate, citation correctness, faithfulness, p95 latency, 
 
 ## 6. Learning and build roadmap
 
-Rule per week: thin theory bite + owned build slice + "explain aloud" checkpoint.
+Implementation order and file-level tasks live in the plan (`docs/superpowers/plans/2026-11-24-smb-support-copilot.md`).
+Agents execute that plan at coding speed.
+The phases below are **ownership slices**, not week-long coding estimates.
+
+Rule per slice: thin theory bite when blocked + build/land the slice + "explain aloud" gate.
 No binge-reading.
+Do not treat a slice as mastered until the gate passes, even if the code already merged.
 
-### Phase 0 - Foundations (Week 1)
+### Phase 0 - Foundations (plan Tasks 1-2, 8 smoke)
 
-- Build: FastAPI skeleton on VPS (Docker + Nginx + CI healthcheck), Postgres/Redis, Expo app hitting healthcheck.
-- Read: Chip Huyen productizing/eval overview chapters as orientation; FastAPI async only as needed.
-- Checkpoint: whiteboard phone → VPS → DB path.
+- Build: FastAPI skeleton, Compose (Postgres/Redis/Qdrant), CI healthcheck, Expo hitting health.
+- Read: Chip Huyen productizing/eval overview as orientation; FastAPI async only as needed.
+- Gate: whiteboard phone → VPS → DB path.
 
-### Phase 1 - Ingest + chunking lab (Weeks 2-3)
+### Phase 1 - Ingest + chunking lab (plan Task 3 + experiment in Task 9)
 
 - Build: upload PDF/MD + simple crawl; fixed vs heading vs parent-child chunkers; embed to Qdrant; admin inspect UI.
-- Read: Chip Huyen data/RAG chapters; LangChain/LlamaIndex chunking docs; one solid parent-document retriever reference.
-- Checkpoint: explain chunking winner with numbers on a sample corpus.
+- Read: Chip Huyen data/RAG chapters; chunking docs; parent-document retriever reference.
+- Gate: explain chunking winner with numbers on a sample corpus.
 
-### Phase 2 - RAG chat with citations (Weeks 3-4)
+### Phase 2 - RAG chat with citations (plan Tasks 4, 7-8 chat surfaces)
 
-- Build: hybrid retrieve → generate with citations + memory; RN chat UI; refusal behavior.
-- Read: Chip Huyen retrieval/prompt chapters; tool/function calling overviews for OpenAI and Anthropic/Gemini as needed.
-- Checkpoint: 10 golden questions with citation proof; known failure modes.
+- Build: hybrid retrieve → generate with citations + memory; RN/web chat; refusal behavior.
+- Read: Chip Huyen retrieval/prompt chapters; tool/function calling overviews as needed.
+- Gate: demo golden questions with citation proof; know failure modes.
 
-### Phase 3 - Agent + HITL (Weeks 5-6)
+### Phase 3 - Agent + HITL (plan Task 5)
 
 - Build: LangGraph with `search_knowledge`, `lookup_order` (stub), escalate/create ticket; structured outputs; HITL pause.
-- Read: LangGraph docs for graphs/tools/HITL only as used; Chip Huyen agent/orchestration sections.
-- Checkpoint: narrate graph node-by-node for failed lookup → escalate.
+- Read: LangGraph docs for graphs/tools/HITL only as used; Chip Huyen agent sections.
+- Gate: narrate graph node-by-node for failed lookup → escalate.
 
-### Phase 4 - n8n workflow (Week 7)
+### Phase 4 - n8n workflow (plan Task 6)
 
 - Build: webhook → `/draft-reply` → Slack/email approve; one realistic inbound source.
 - Read: n8n webhook/HTTP docs as needed.
-- Checkpoint: ticket → draft → human approve without opening admin.
+- Gate: ticket → draft → human approve without opening admin.
 
-### Phase 5 - Evals, cost, harden (Weeks 8-9)
+### Phase 5 - Evals, cost, harden (plan Tasks 9-10)
 
-- Build: golden harness; latency/cost logs; rate limits; auth; refusal tests; second LLM provider on one path.
-- Read: Chip Huyen evaluation and system-design chapters; implement simple custom metrics before optional RAGAS.
-- Checkpoint: answer JD evaluation/hallucination/cost question from your own metrics.
+- Build: golden harness; latency/cost logs; rate limits; auth; refusal tests; Claude provider path; VPS prod compose.
+- Read: Chip Huyen evaluation and system-design chapters; simple custom metrics before optional RAGAS.
+- Gate: answer JD evaluation/hallucination/cost question from your own metrics.
 
-### Phase 6 - Real user + portfolio (Weeks 10-12)
+### Phase 6 - Real user + portfolio (plan Task 11 + Nate outreach)
 
-- Build: onboard partner docs; fix retrieval gaps; RN demo polish; portfolio write-up; mock interview from architecture notes.
+- Build: onboard partner docs; fix retrieval gaps; RN demo polish; portfolio write-up; mock interview.
 - Read: only gaps that block production issues.
-- Checkpoint: live URL + Expo demo + one external user result.
+- Gate: live URL + Expo demo + one external user result.
 
 ### Resource policy
 
-- Primary book: Chip Huyen *AI Engineering*, chapter when it unblocks the phase.
+- Primary book: Chip Huyen *AI Engineering*, chapter when it unblocks a gate or bug.
 - Primary docs: LangGraph, Qdrant, FastAPI, Expo - task-scoped.
 - Avoid: hoarding courses; dual full frameworks in MVP.
 
@@ -278,7 +294,7 @@ No binge-reading.
 
 - Mobile scope creep → thin client only.
 - Framework sprawl → LangGraph primary.
-- No partner by week 10 → willing friend's business docs still count as external.
+- No partner soon after MVP deploy → willing friend's business docs still count as external.
 - VPS limits → async/queue heavy ingest; keep eval corpus small.
 
 ## 8. Mapping to target job description
@@ -297,13 +313,15 @@ No binge-reading.
 | Live demo + repos | Explicit portfolio artifacts |
 | Support / ecom / CRM-adjacent | SMB support vertical |
 
-## 9. Next step after spec approval
+## 9. Next step
 
-Create a detailed implementation plan via the writing-plans workflow (phased tasks, TDD where applicable, verification steps).
-Do not start coding until that plan exists and is approved.
+Implementation plan is written: `docs/superpowers/plans/2026-11-24-smb-support-copilot.md`.
+Execute it with subagent-driven or inline plan execution.
+Land ownership gates A-F from that plan as the learning definition of done alongside working software.
 
 ## 10. Non-goals for the learning process
 
-- Outsourcing understanding to autonomous coding agents for core RAG/agent logic.
+- Shipping agent-generated code without passing ownership gates (black-box portfolio).
 - Collecting certificates instead of a running system.
 - Expanding into unrelated AI topics before the MVP definition of done is met.
+- Treating slow human typing estimates as a constraint on agent implementation speed.

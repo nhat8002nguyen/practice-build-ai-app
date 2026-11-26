@@ -23,6 +23,7 @@ class AgentResult:
     citations: list[dict[str, str]] = field(default_factory=list)
     ticket_id: str | None = None
     awaiting_human: bool = False
+    refused: bool = False
     prompt_tokens: int = 0
     completion_tokens: int = 0
 
@@ -36,11 +37,13 @@ async def run_agent(
 ) -> AgentResult:
     graph = build_graph(ctx, llm, get_checkpointer())
     state = await graph.ainvoke(initial_state(question, history), _config(ctx.thread_id))
+    awaiting_human = "__interrupt__" in state
     return AgentResult(
         answer=state["answer"],
         citations=state["citations"],
         ticket_id=state["ticket_id"],
-        awaiting_human="__interrupt__" in state,
+        awaiting_human=awaiting_human,
+        refused=False if awaiting_human else bool(state.get("refused")),
         prompt_tokens=state["prompt_tokens"],
         completion_tokens=state["completion_tokens"],
     )

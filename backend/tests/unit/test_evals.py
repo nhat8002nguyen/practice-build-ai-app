@@ -177,9 +177,18 @@ def test_experiment_requires_markers_in_the_decision_record():
         chunking_experiment.replace_table("no markers here", "table")
 
 
-def test_decision_record_contains_a_filled_table():
-    text = chunking_experiment.DECISION_RECORD.read_text()
+def test_format_table_reports_variant_metrics_from_evaluate():
+    golden = load_golden()[:3]
+    reports = [
+        asyncio.run(evaluate(variant, HashEmbedder(), golden, k=2)) for variant in VARIANTS
+    ]
 
-    assert chunking_experiment.START_MARKER in text
-    for variant in VARIANTS:
-        assert f"| {variant.name} |" in text
+    table = chunking_experiment.format_table(reports, "hash", len(golden))
+
+    assert "hit_rate@2" in table
+    assert "Embedder: `hash`" in table
+    for report in reports:
+        assert report.chunk_count > 0
+        assert f"| {report.variant} |" in table
+        assert f"| {report.hit_rate:.3f} |" in table
+        assert f"| {report.correct_refusal_rate:.3f} |" in table

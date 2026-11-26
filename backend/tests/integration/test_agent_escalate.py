@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.agents.graph import FALLBACK_ANSWER, MAX_ASSISTANT_STEPS
 from app.agents.runner import get_checkpointer
+from app.rag.generate import REFUSAL_TEXT
 
 FIXTURE = Path(__file__).parents[2] / "evals" / "fixtures" / "sample_policy.md"
 REFUND_QUOTE = "Customers may request a full refund within 14 days of purchase."
@@ -228,13 +229,14 @@ def test_tool_errors_are_fed_back_to_the_model(client, register_user, script, ll
     script(
         tool("create_ticket", reason="help", priority="urgent"),
         tool("nope"),
-        final("Sorry, I cannot help."),
+        final(FALLBACK_ANSWER),
     )
     headers = register_user()
 
     body = ask_agent(client, headers, new_session(client, headers), "help").json()
 
     assert body["status"] == "answered"
+    assert body["answer"] == FALLBACK_ANSWER
     assert "priority must be one of" in llm.calls[1][1][-1]["content"]
     assert "unknown tool 'nope'" in llm.calls[2][1][-1]["content"]
     assert client.get("/tickets", headers=headers).json() == []
@@ -261,6 +263,38 @@ def test_malformed_model_output_falls_back(client, register_user, script):
 
     assert body["answer"] == FALLBACK_ANSWER
     assert body["status"] == "answered"
+    assert body["refused"] is False
+
+
+def test_ungrounded_policy_final_is_refused(client, register_user, script):
+    script(final("Refunds are available for 90 days."))
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "What is the refund window?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["refused"] is True
+    assert body["answer"] == REFUSAL_TEXT
+    assert body["citations"] == []
+
+
+def test_failed_lookup_does_not_unlock_ungrounded_final(client, register_user, script):
+    script(
+        tool("lookup_order"),
+        final("Refunds are available for 90 days."),
+    )
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "What is the refund window?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["refused"] is True
+    assert body["answer"] == REFUSAL_TEXT
+    assert body["citations"] == []
 
 
 def test_agent_loop_is_bounded(client, register_user, script, llm):
@@ -274,14 +308,19 @@ def test_agent_loop_is_bounded(client, register_user, script, llm):
 
 
 def test_agent_sees_earlier_turns_of_the_session(client, register_user, script, llm):
-    script(final("First reply."), final("Second reply."))
+    script(
+        tool("lookup_order", order_id="ORD-1"),
+        final("First reply."),
+        tool("lookup_order", order_id="ORD-1"),
+        final("Second reply."),
+    )
     headers = register_user()
     session_id = new_session(client, headers)
 
     ask_agent(client, headers, session_id, "one")
     ask_agent(client, headers, session_id, "two")
 
-    roles = [m["role"] for m in llm.calls[1][1]]
+    roles = [m["role"] for m in llm.calls[2][1]]
     assert roles == ["user", "assistant", "user"]
 
 

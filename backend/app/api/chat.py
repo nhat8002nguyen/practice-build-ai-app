@@ -51,7 +51,7 @@ async def _answer_with_agent(
     await append_exchange(ctx.session, ctx.session_id, content, result.answer)
     return MessageResponse(
         answer=result.answer,
-        refused=False,
+        refused=result.refused,
         citations=[CitationResponse(**c) for c in result.citations],
         metrics=MetricsResponse(
             latency_ms=round((time.perf_counter() - started) * 1000, 2),

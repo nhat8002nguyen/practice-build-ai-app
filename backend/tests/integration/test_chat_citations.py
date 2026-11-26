@@ -81,7 +81,11 @@ def test_off_topic_question_is_refused_without_calling_the_model(client, llm):
     upload_policy(client, headers)
     session_id = new_session(client, headers)
 
-    response = ask(client, headers, session_id, "Who won the football world cup?")
+    # Query must stay under RETRIEVAL_MIN_SCORE (0.3) with HashEmbedder so generate
+    # short-circuits before the model. Generic sports questions can score ~0.33.
+    response = ask(
+        client, headers, session_id, "photosynthesis chlorophyll mitochondria"
+    )
 
     body = response.json()
     assert body["refused"] is True

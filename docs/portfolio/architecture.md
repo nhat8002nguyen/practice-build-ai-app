@@ -92,7 +92,12 @@ flowchart LR
 
 - The LangGraph graph has four nodes: `assistant`, `tools`, `hitl`, `finalize`.
 - Tools: `search_knowledge` (same grounded pipeline as RAG mode), `lookup_order` (stub), `create_ticket`.
-- The assistant is capped at 6 steps and falls back to a safe message on malformed output.
+- Final replies never invent policy.
+  The assistant prefers known safe tool outcomes, grounds ungrounded finals through `search_knowledge`, and uses a fixed HITL placeholder when a ticket is open and no safe draft exists.
+- When both a found order and a non-refused grounded search exist, the reply leads with structured order status, then appends the grounded policy text with that search's citations.
+- Each `search_knowledge` result replaces the citation bag (cleared entirely on refuse), so citations always match the latest search.
+- The assistant is capped at 6 steps.
+  On budget exhaustion or malformed output it still runs that same safe-finalization cascade; only when nothing safer is known does it return the generic fallback with empty citations.
 - `create_ticket` is idempotent per run, keyed by the thread ID.
 - `hitl` calls `interrupt()`, which checkpoints state and pauses the run.
   `POST /tickets/{id}/resolve` resumes it with approve or reject.

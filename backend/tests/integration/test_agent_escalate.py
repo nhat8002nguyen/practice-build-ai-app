@@ -240,6 +240,49 @@ def test_search_knowledge_returns_grounded_citations(client, register_user, scri
     assert body["metrics"]["prompt_tokens"] == 360
 
 
+def test_refused_search_clears_prior_citations(client, register_user, llm):
+    agent_steps = [
+        tool("search_knowledge", query="Can I get a full refund within 14 days?"),
+        tool("search_knowledge", query="What is the refund window again?"),
+        final("I still need an answer."),
+    ]
+    queue = list(agent_steps)
+    rag_calls = 0
+
+    def respond(system: str, messages) -> str:
+        nonlocal rag_calls
+        if system.startswith(AGENT_PROMPT_START):
+            return queue.pop(0) if queue else final("done")
+        rag_calls += 1
+        if rag_calls == 1:
+            chunk_id = system.split("[chunk_id=", 1)[1].split("]", 1)[0]
+            return json.dumps(
+                {
+                    "answer": "Refunds are available within 14 days of purchase.",
+                    "citations": [{"chunk_id": chunk_id, "quote": REFUND_QUOTE}],
+                }
+            )
+        return json.dumps({"insufficient_evidence": True})
+
+    llm.responder = respond
+    headers = register_user()
+    client.post(
+        "/documents/upload",
+        headers=headers,
+        files={"file": ("sample_policy.md", FIXTURE.read_bytes(), "text/markdown")},
+    )
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "Can I get a full refund?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["refused"] is True
+    assert body["answer"] == REFUSAL_TEXT
+    assert body["citations"] == []
+    assert rag_calls == 2
+
+
 def test_tool_errors_are_fed_back_to_the_model(client, register_user, script, llm):
     script(
         tool("create_ticket", reason="help", priority="urgent"),

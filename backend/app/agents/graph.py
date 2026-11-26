@@ -96,20 +96,32 @@ def _parse_action(text: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"action": "final", "answer": FALLBACK_ANSWER}
 
 
+def _apply_search_citations(
+    prior: list[dict[str, str]], answers: list[Any]
+) -> list[dict[str, str]]:
+    """Merge citations across non-refused searches; a refused search replaces the bag."""
+    citations = {c["chunk_id"]: c for c in prior}
+    for answer in answers:
+        next_citations = {c.chunk_id: vars(c) for c in answer.citations}
+        if answer.refused:
+            citations = next_citations
+        else:
+            citations.update(next_citations)
+    return list(citations.values())
+
+
 def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
     """assistant -> tools -> assistant -> (hitl) -> finalize, one compiled graph per request."""
 
     async def _ground_with_search(state: AgentState, usage: dict[str, Any]) -> dict[str, Any]:
         await search_knowledge(ctx, state["question"])
         answer = ctx.take_search_answers()[-1]
-        citations = {c["chunk_id"]: c for c in state["citations"]}
-        citations.update({c.chunk_id: vars(c) for c in answer.citations})
         return {
             **usage,
             "pending": None,
             "answer": answer.text,
             "refused": answer.refused,
-            "citations": list(citations.values()),
+            "citations": _apply_search_citations(state["citations"], [answer]),
             "grounded_answer": answer.text,
             "prompt_tokens": usage["prompt_tokens"] + answer.usage.prompt_tokens,
             "completion_tokens": usage["completion_tokens"] + answer.usage.completion_tokens,
@@ -196,16 +208,16 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             if tool_name == "lookup_order" and isinstance(output, dict):
                 order_status = output if output.get("found") else None
 
-        citations = {c["chunk_id"]: c for c in state["citations"]}
         prompt_tokens, completion_tokens = state["prompt_tokens"], state["completion_tokens"]
         grounded_answer = state["grounded_answer"]
         refused = state["refused"]
-        for answer in ctx.take_search_answers():
-            citations.update({c.chunk_id: vars(c) for c in answer.citations})
+        search_answers = ctx.take_search_answers()
+        for answer in search_answers:
             prompt_tokens += answer.usage.prompt_tokens
             completion_tokens += answer.usage.completion_tokens
             grounded_answer = answer.text
             refused = answer.refused
+        citations = _apply_search_citations(state["citations"], search_answers)
         scratch = [
             *state["scratch"],
             {"role": "user", "content": f"Tool result: {observation}"},
@@ -214,7 +226,7 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             "scratch": scratch,
             "pending": None,
             "ticket_id": ticket_id,
-            "citations": list(citations.values()),
+            "citations": citations,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "grounded_answer": grounded_answer,

@@ -1,5 +1,4 @@
 import math
-import re
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -10,17 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.entities import ChunkRecord, Document
 from app.rag.embeddings import Embedder
 from app.rag.store import QdrantStore
+from app.rag.terms import content_tokens
 
 READY = "ready"
 CANDIDATE_POOL = 20
 BM25_K1 = 1.5
 BM25_B = 0.75
-
-_WORD = re.compile(r"\w+")
-_STOPWORDS = frozenset(
-    "a an and are as at be by can do does for from how i in is it my of on or "
-    "our the to was we what when where which who why will with you your".split()
-)
 
 
 @dataclass
@@ -34,7 +28,7 @@ class RetrievedChunk:
 
 
 def tokenize(text: str) -> list[str]:
-    return [w for w in _WORD.findall(text.lower()) if w not in _STOPWORDS]
+    return content_tokens(text)
 
 
 def bm25_scores(query: str, documents: dict[str, str]) -> list[tuple[str, float]]:

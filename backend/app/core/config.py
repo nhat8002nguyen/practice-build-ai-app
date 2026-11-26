@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     app_name: str = "smb-support-copilot"
     app_env: str = "development"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/copilot"
+    database_url: str = "postgresql+asyncpg://postgres:dev-only-change-me@localhost:5432/copilot"
     redis_url: str = "redis://localhost:6379/0"
     qdrant_url: str = "http://localhost:6333"
     jwt_secret: str = DEFAULT_JWT_SECRET

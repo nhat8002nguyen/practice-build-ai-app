@@ -79,7 +79,7 @@ pytest
 To run integration tests against the Compose Postgres service, set `DATABASE_URL` to a dedicated test database before invoking pytest:
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/copilot_test pytest
+DATABASE_URL=postgresql+asyncpg://postgres:dev-only-change-me@localhost:5432/copilot_test pytest
 ```
 
 When `DATABASE_URL` is not explicitly set, the auth smoke test uses a temporary SQLite database so the test suite can run without Docker.

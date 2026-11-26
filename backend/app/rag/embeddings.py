@@ -1,13 +1,12 @@
 import hashlib
 import math
-import re
 from typing import Protocol
 
 from openai import AsyncOpenAI
 
 from app.core.config import settings
+from app.rag.terms import content_tokens
 
-_WORD = re.compile(r"\w+")
 _OPENAI_BATCH_SIZE = 100
 
 
@@ -46,7 +45,7 @@ class HashEmbedder:
 
     def _embed(self, text: str) -> list[float]:
         vector = [0.0] * self.dimensions
-        for word in _WORD.findall(text.lower()):
+        for word in content_tokens(text):
             digest = hashlib.sha256(word.encode()).digest()
             vector[int.from_bytes(digest[:4], "big") % self.dimensions] += 1.0
         norm = math.sqrt(sum(value * value for value in vector)) or 1.0

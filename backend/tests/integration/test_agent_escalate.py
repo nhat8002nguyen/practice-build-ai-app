@@ -283,6 +283,80 @@ def test_refused_search_clears_prior_citations(client, register_user, llm):
     assert rag_calls == 2
 
 
+def _chunk_id_for_quote(system: str, quote: str) -> str:
+    marker = "[chunk_id="
+    start = 0
+    while True:
+        at = system.find(marker, start)
+        if at < 0:
+            raise AssertionError(f"no retrieved chunk contains {quote!r}")
+        chunk_id = system[at + len(marker) :].split("]", 1)[0]
+        next_at = system.find(marker, at + len(marker))
+        excerpt = system[at: next_at if next_at >= 0 else len(system)]
+        if quote in excerpt:
+            return chunk_id
+        start = at + len(marker)
+
+
+def test_successful_search_replaces_prior_citations(client, register_user, llm):
+    shipping_quote = "Standard delivery takes 3 to 7 business days."
+    shipping_answer = "Standard delivery takes 3 to 7 business days."
+    agent_steps = [
+        tool("search_knowledge", query="Can I get a full refund within 14 days?"),
+        tool("search_knowledge", query="How long does standard delivery take?"),
+        final("Shipping takes a few days."),
+    ]
+    queue = list(agent_steps)
+    rag_calls = 0
+
+    def respond(system: str, messages) -> str:
+        nonlocal rag_calls
+        if system.startswith(AGENT_PROMPT_START):
+            return queue.pop(0) if queue else final("done")
+        rag_calls += 1
+        if rag_calls == 1:
+            return json.dumps(
+                {
+                    "answer": "Refunds are available within 14 days of purchase.",
+                    "citations": [
+                        {
+                            "chunk_id": _chunk_id_for_quote(system, REFUND_QUOTE),
+                            "quote": REFUND_QUOTE,
+                        }
+                    ],
+                }
+            )
+        return json.dumps(
+            {
+                "answer": shipping_answer,
+                "citations": [
+                    {
+                        "chunk_id": _chunk_id_for_quote(system, shipping_quote),
+                        "quote": shipping_quote,
+                    }
+                ],
+            }
+        )
+
+    llm.responder = respond
+    headers = register_user()
+    client.post(
+        "/documents/upload",
+        headers=headers,
+        files={"file": ("sample_policy.md", FIXTURE.read_bytes(), "text/markdown")},
+    )
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "How long is shipping?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["refused"] is False
+    assert body["answer"] == shipping_answer
+    assert [c["quote"] for c in body["citations"]] == [shipping_quote]
+    assert rag_calls == 2
+
+
 def test_tool_errors_are_fed_back_to_the_model(client, register_user, script, llm):
     script(
         tool("create_ticket", reason="help", priority="urgent"),
@@ -410,6 +484,42 @@ def test_refused_search_does_not_mask_order_status(
             "eta_days": 3,
         }
     )
+
+
+def test_order_and_grounded_answer_are_combined(
+    client, register_user, script, monkeypatch
+):
+    monkeypatch.setenv("ORDER_STUB_MODE", "hit")
+    grounded = "Refunds are available within 14 days of purchase."
+    script(
+        tool("search_knowledge", query="Can I get a full refund within 14 days?"),
+        tool("lookup_order", order_id="ORD-1"),
+        final("Order shipped; refunds within 14 days."),
+    )
+    headers = register_user()
+    client.post(
+        "/documents/upload",
+        headers=headers,
+        files={"file": ("sample_policy.md", FIXTURE.read_bytes(), "text/markdown")},
+    )
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "Where is ORD-1 and refunds?"
+    ).json()
+
+    order_text = format_order_status(
+        {
+            "found": True,
+            "order_id": "ORD-1",
+            "status": "shipped",
+            "carrier": "DemoExpress",
+            "eta_days": 3,
+        }
+    )
+    assert body["status"] == "answered"
+    assert body["refused"] is False
+    assert body["answer"] == f"{order_text}\n\n{grounded}"
+    assert [c["quote"] for c in body["citations"]] == [REFUND_QUOTE]
 
 
 def test_hitl_draft_does_not_surface_invented_policy(

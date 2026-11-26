@@ -99,14 +99,43 @@ def _parse_action(text: str) -> dict[str, Any]:
 def _apply_search_citations(
     prior: list[dict[str, str]], answers: list[Any]
 ) -> list[dict[str, str]]:
-    """Merge citations across non-refused searches; a refused search clears the bag."""
-    citations = {c["chunk_id"]: c for c in prior}
+    """Latest search wins: replace with that answer's citations, or clear on refuse."""
+    if not answers:
+        return list(prior)
+    citations: dict[str, dict[str, str]] = {}
     for answer in answers:
         if answer.refused:
             citations = {}
         else:
-            citations.update({c.chunk_id: vars(c) for c in answer.citations})
+            citations = {c.chunk_id: vars(c) for c in answer.citations}
     return list(citations.values())
+
+
+def _compose_order_and_grounded(state: AgentState) -> dict[str, Any] | None:
+    """Lead with order status when found; append non-refused grounded policy when both exist."""
+    order = state["order_status"]
+    grounded = state["grounded_answer"]
+    has_policy = grounded is not None and not state["refused"]
+    if order is not None and has_policy:
+        return {
+            "answer": f"{format_order_status(order)}\n\n{grounded}",
+            "refused": False,
+        }
+    if has_policy:
+        return {"answer": grounded, "refused": False}
+    if order is not None:
+        return {
+            "answer": format_order_status(order),
+            "refused": False,
+            "citations": [],
+        }
+    if grounded is not None:
+        return {
+            "answer": grounded,
+            "refused": True,
+            "citations": [],
+        }
+    return None
 
 
 def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
@@ -150,47 +179,19 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             answer = FALLBACK_ANSWER
         else:
             answer = str(action.get("answer") or "").strip() or FALLBACK_ANSWER
-        # HITL draft: never free-form model text; grounded reply or safe placeholder.
+        composed = _compose_order_and_grounded(state)
+        # HITL draft: never free-form model text; safe tool outcomes or placeholder.
         if state["ticket_id"]:
-            if state["grounded_answer"] is not None and not state["refused"]:
-                return {
-                    **usage,
-                    "pending": None,
-                    "answer": state["grounded_answer"],
-                    "refused": False,
-                }
+            if composed is not None and not composed.get("refused", False):
+                return {**usage, "pending": None, **composed}
             return {
                 **usage,
                 "pending": None,
                 "answer": HITL_PLACEHOLDER,
                 "citations": [],
             }
-        # Prefer non-refused grounded policy over order stub or refusal.
-        if state["grounded_answer"] is not None and not state["refused"]:
-            return {
-                **usage,
-                "pending": None,
-                "answer": state["grounded_answer"],
-                "refused": False,
-            }
-        # Found-order replies come from stub data, never free-form model text.
-        if state["order_status"] is not None:
-            return {
-                **usage,
-                "pending": None,
-                "answer": format_order_status(state["order_status"]),
-                "refused": False,
-                "citations": [],
-            }
-        # Refused search stands only when there is no order status to report.
-        if state["grounded_answer"] is not None:
-            return {
-                **usage,
-                "pending": None,
-                "answer": state["grounded_answer"],
-                "refused": True,
-                "citations": [],
-            }
+        if composed is not None:
+            return {**usage, "pending": None, **composed}
         # Non-policy safe fallback (parse failure / explicit fallback text / budget).
         if answer == FALLBACK_ANSWER:
             return {

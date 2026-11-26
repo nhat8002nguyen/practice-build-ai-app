@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agents.graph import FALLBACK_ANSWER, MAX_ASSISTANT_STEPS
+from app.agents.graph import FALLBACK_ANSWER, MAX_ASSISTANT_STEPS, format_order_status
 from app.agents.runner import get_checkpointer
 from app.rag.generate import REFUSAL_TEXT
 
@@ -200,7 +200,17 @@ def test_existing_order_is_answered_without_a_ticket(
 
     assert body["status"] == "answered"
     assert body["ticket_id"] is None
-    assert body["answer"] == "Order ORD-1 has shipped."
+    assert body["refused"] is False
+    assert body["citations"] == []
+    assert body["answer"] == format_order_status(
+        {
+            "found": True,
+            "order_id": "ORD-1",
+            "status": "shipped",
+            "carrier": "DemoExpress",
+            "eta_days": 3,
+        }
+    )
     assert client.get("/tickets", headers=headers).json() == []
 
 
@@ -292,6 +302,57 @@ def test_failed_lookup_does_not_unlock_ungrounded_final(client, register_user, s
     ).json()
 
     assert body["status"] == "answered"
+    assert body["refused"] is True
+    assert body["answer"] == REFUSAL_TEXT
+    assert body["citations"] == []
+
+
+def test_successful_lookup_does_not_unlock_ungrounded_final(
+    client, register_user, script, monkeypatch
+):
+    monkeypatch.setenv("ORDER_STUB_MODE", "hit")
+    invented = "Refunds are available for 90 days."
+    script(
+        tool("lookup_order", order_id="ORD-1"),
+        final(invented),
+    )
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "What is the refund window?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["answer"] != invented
+    assert body["answer"] == format_order_status(
+        {
+            "found": True,
+            "order_id": "ORD-1",
+            "status": "shipped",
+            "carrier": "DemoExpress",
+            "eta_days": 3,
+        }
+    )
+    assert body["citations"] == []
+
+
+def test_missed_lookup_final_without_ticket_is_grounded(
+    client, register_user, script, monkeypatch
+):
+    monkeypatch.setenv("ORDER_STUB_MODE", "miss")
+    invented = "Refunds are available for 90 days."
+    script(
+        tool("lookup_order", order_id="ORD-404"),
+        final(invented),
+    )
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "What is the refund window?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["ticket_id"] is None
     assert body["refused"] is True
     assert body["answer"] == REFUSAL_TEXT
     assert body["citations"] == []

@@ -46,9 +46,16 @@ class AgentState(TypedDict):
     note: str | None
     prompt_tokens: int
     completion_tokens: int
-    used_tools: list[str]
     grounded_answer: str | None
+    order_status: dict[str, Any] | None
     refused: bool
+
+
+def format_order_status(order: dict[str, Any]) -> str:
+    return (
+        f"Order {order['order_id']} is {order['status']} "
+        f"via {order['carrier']}, ETA {order['eta_days']} days."
+    )
 
 
 def initial_state(question: str, history: list[dict[str, str]]) -> AgentState:
@@ -65,8 +72,8 @@ def initial_state(question: str, history: list[dict[str, str]]) -> AgentState:
         note=None,
         prompt_tokens=0,
         completion_tokens=0,
-        used_tools=[],
         grounded_answer=None,
+        order_status=None,
         refused=False,
     )
 
@@ -103,7 +110,6 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             "refused": answer.refused,
             "citations": list(citations.values()),
             "grounded_answer": answer.text,
-            "used_tools": [*state["used_tools"], "search_knowledge"],
             "prompt_tokens": usage["prompt_tokens"] + answer.usage.prompt_tokens,
             "completion_tokens": usage["completion_tokens"] + answer.usage.completion_tokens,
         }
@@ -143,9 +149,14 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
                 "answer": state["grounded_answer"],
                 "refused": state["refused"],
             }
-        # Order-tool replies are not KB policy claims.
-        if "lookup_order" in state["used_tools"]:
-            return {**usage, "pending": None, "answer": answer}
+        # Found-order replies come from stub data, never free-form model text.
+        if state["order_status"] is not None:
+            return {
+                **usage,
+                "pending": None,
+                "answer": format_order_status(state["order_status"]),
+                "refused": False,
+            }
         # Non-policy safe fallback (parse failure / explicit fallback text).
         if answer == FALLBACK_ANSWER:
             return {**usage, "pending": None, "answer": FALLBACK_ANSWER}
@@ -157,7 +168,7 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
         call = state["pending"] or {}
         tool_name = str(call.get("tool") or "")
         ticket_id = state["ticket_id"]
-        used_tools = state["used_tools"]
+        order_status = state["order_status"]
         try:
             output = await run_tool(ctx, tool_name, call.get("args"))
         except ToolError as error:
@@ -166,8 +177,8 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             observation = output if isinstance(output, str) else json.dumps(output)
             if tool_name == "create_ticket":
                 ticket_id = output
-            if tool_name:
-                used_tools = [*state["used_tools"], tool_name]
+            if tool_name == "lookup_order" and isinstance(output, dict):
+                order_status = output if output.get("found") else None
 
         citations = {c["chunk_id"]: c for c in state["citations"]}
         prompt_tokens, completion_tokens = state["prompt_tokens"], state["completion_tokens"]
@@ -190,8 +201,8 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             "citations": list(citations.values()),
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
-            "used_tools": used_tools,
             "grounded_answer": grounded_answer,
+            "order_status": order_status,
             "refused": refused,
         }
 

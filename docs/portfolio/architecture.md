@@ -68,9 +68,10 @@ sequenceDiagram
 ```
 
 1. Rate limit: a Redis Lua token bucket per user (see Hardening).
-2. Retrieve: Qdrant dense hits plus BM25 over the same user's chunks, merged by `RETRIEVAL_DENSE_WEIGHT` (default 0.7).
+2. Retrieve: Qdrant dense hits plus BM25 over the same user's chunks.
+   Single-channel hits keep that channel's score; both-present hits use a true weighted sum with `RETRIEVAL_DENSE_WEIGHT` (default 0.7) so the weight still changes ranking.
    Hits are hydrated from Postgres, so stale vectors never reach the model.
-3. Gate: if the best score is below `RETRIEVAL_MIN_SCORE` the API refuses without calling the model.
+3. Gate: if the best merged score is below `RETRIEVAL_MIN_SCORE` (default 0.3, tuned for weight 0.7) the API refuses without calling the model.
 4. Generate: the model must return JSON with citations that quote the excerpts verbatim.
 5. Verify: citations must point at retrieved chunks, quotes must be substantial and verbatim, and every number in the answer must appear in a cited chunk.
    Anything else becomes a refusal.

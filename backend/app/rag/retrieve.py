@@ -80,8 +80,8 @@ def merge_hybrid(
     """Merge dense and sparse scores on [0, 1].
 
     A hit present in only one channel keeps that channel's score. When both channels
-    hit, the score is max(dense, sparse, weighted sum) so a weak second channel cannot
-    pull a single-channel clearance under the retrieval refusal gate.
+    hit, the score is the dense-weighted sum so RETRIEVAL_DENSE_WEIGHT changes ranking.
+    RETRIEVAL_MIN_SCORE is tuned against this merged scale (default 0.3 with weight 0.7).
     """
     dense_scores = dict(dense)
     sparse_scores = dict(sparse)
@@ -92,8 +92,9 @@ def merge_hybrid(
         if has_dense and has_sparse:
             dense_score = dense_scores[doc_id]
             sparse_score = sparse_scores[doc_id]
-            weighted = dense_weight * dense_score + (1 - dense_weight) * sparse_score
-            combined[doc_id] = max(dense_score, sparse_score, weighted)
+            combined[doc_id] = (
+                dense_weight * dense_score + (1 - dense_weight) * sparse_score
+            )
         elif has_dense:
             combined[doc_id] = dense_scores[doc_id]
         else:

@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o-mini"
     anthropic_model: str = "claude-haiku-4-5"
-    retrieval_min_score: float = 0.35
+    # Gate applies to merge_hybrid scores. Default 0.3 pairs with dense_weight 0.7 so
+    # single-channel strong hits and mid-strength both-present scores (e.g. 0.4/0.2) clear.
+    retrieval_min_score: float = 0.3
     retrieval_dense_weight: float = 0.7
     chat_history_turns: int = 6
     cors_origins: str = "http://localhost:5173,http://localhost:8081"

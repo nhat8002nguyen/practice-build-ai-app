@@ -131,7 +131,7 @@ Honest caveats to say out loud:
 
 **Preventing hallucinations** (`backend/app/rag/generate.py`)
 
-1. Retrieval gate: if the best score is under `RETRIEVAL_MIN_SCORE` (0.35), refuse without calling the model.
+1. Retrieval gate: if the best merged score is under `RETRIEVAL_MIN_SCORE` (0.3, tuned for dense weight 0.7), refuse without calling the model.
 2. Prompt: answer only from the excerpts, return JSON, or return `insufficient_evidence`.
 3. Citation verification: each citation must reference a retrieved chunk and quote it verbatim.
    Quotes must have at least 20 characters and 4 words, so a one-word match does not count.

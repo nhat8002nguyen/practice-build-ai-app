@@ -1,0 +1,103 @@
+{
+  "name": "Draft support reply",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "draft-reply",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "8455ec90-3389-4cd7-97b8-3186d25876ad",
+      "name": "Ticket Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8cc34272-febc-4650-b6df-2e3793c017de"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DRAFT_API_URL + '/drafts/reply' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.N8N_DRAFT_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ subject: $json.body.subject, body: $json.body.body, customer_email: $json.body.customer_email || null }) }}",
+        "options": {}
+      },
+      "id": "17dd08d2-6161-442e-bb83-f95ce417e33c",
+      "name": "Generate Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ text: '*Draft reply ready*\\n\\n' + $json.draft + '\\n\\nRefused: ' + $json.refused + '\\nCitations: ' + JSON.stringify($json.citations) }) }}",
+        "options": {}
+      },
+      "id": "a13890bf-cce7-4f32-9e15-e645b2469aee",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ticket Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Draft": {
+      "main": [
+        [
+          {
+            "node": "Send to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f01320e8-426d-48b1-b12d-c12ce16393fb",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

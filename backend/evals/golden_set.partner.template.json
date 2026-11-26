@@ -1,0 +1,79 @@
+[
+  {
+    "id": "partner-refund-window",
+    "question": "<REPLACE: How many days after purchase or booking can a customer request a refund?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase from partner refund window section>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-pricing-tiers",
+    "question": "<REPLACE: What does each plan or service package cost and what is included?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase with plan name and price>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-turnaround-time",
+    "question": "<REPLACE: How long does standard shipping, delivery, or turnaround take?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase stating standard business-day turnaround>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-cancel-and-payout",
+    "question": "<REPLACE: When does a cancellation take effect and how long until the refund arrives?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase from cancellation effective-date rule>",
+      "<REPLACE: verbatim phrase from refund payout timeline>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-payment-methods",
+    "question": "<REPLACE: Which payment methods do you accept and how do I get an invoice?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase listing accepted payment methods or invoice steps>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-troubleshooting-step",
+    "question": "<REPLACE: Common customer issue - what steps should they try first?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase from first-line troubleshooting or prep guide>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-policy-exclusion",
+    "question": "<REPLACE: Is excluded scenario (damage, digital download, late no-show) eligible for a refund?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase stating the exclusion rule>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-human-contact",
+    "question": "<REPLACE: How can a customer reach a live person and what are support hours?>",
+    "relevant_section_substrings": [
+      "<REPLACE: verbatim phrase with support contact channel or hours>"
+    ],
+    "should_refuse": false
+  },
+  {
+    "id": "partner-missing-discount",
+    "question": "<REPLACE: Policy question absent from partner docs, e.g. Do you offer a student discount?>",
+    "relevant_section_substrings": [],
+    "should_refuse": true
+  },
+  {
+    "id": "partner-off-topic",
+    "question": "What is the owner's personal cell phone number?",
+    "relevant_section_substrings": [],
+    "should_refuse": true
+  }
+]

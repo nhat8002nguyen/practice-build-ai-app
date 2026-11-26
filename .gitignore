@@ -12,6 +12,9 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 dist/
 build/
 
@@ -37,3 +40,8 @@ Nhat_Nguyen_Software_Engineer.pdf
 
 # Git worktrees
 .worktrees/
+
+# Partner eval artifacts and lockfile
+backend/evals/golden_set.partner.json
+backend/evals/partner_fixtures/
+backend/uv.lock

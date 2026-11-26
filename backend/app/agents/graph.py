@@ -16,6 +16,7 @@ from app.services.llm import LLM
 
 MAX_ASSISTANT_STEPS = 6
 FALLBACK_ANSWER = "I could not complete this request. Please contact support."
+HITL_PLACEHOLDER = "Your request has been escalated for human review."
 
 SYSTEM_PROMPT = f"""You are a support agent for a small business. Decide one step at a time.
 Reply with a JSON object, either a tool call:
@@ -138,16 +139,23 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             return {**usage, "pending": None, "answer": FALLBACK_ANSWER}
 
         answer = str(action.get("answer") or "").strip() or FALLBACK_ANSWER
-        # HITL draft: ticket already opened; human decision replaces this later.
+        # HITL draft: never free-form model text; grounded reply or safe placeholder.
         if state["ticket_id"]:
-            return {**usage, "pending": None, "answer": answer}
-        # Prior search_knowledge result is the only allowed policy answer.
-        if state["grounded_answer"] is not None:
+            if state["grounded_answer"] is not None and not state["refused"]:
+                return {
+                    **usage,
+                    "pending": None,
+                    "answer": state["grounded_answer"],
+                    "refused": False,
+                }
+            return {**usage, "pending": None, "answer": HITL_PLACEHOLDER}
+        # Prefer non-refused grounded policy over order stub or refusal.
+        if state["grounded_answer"] is not None and not state["refused"]:
             return {
                 **usage,
                 "pending": None,
                 "answer": state["grounded_answer"],
-                "refused": state["refused"],
+                "refused": False,
             }
         # Found-order replies come from stub data, never free-form model text.
         if state["order_status"] is not None:
@@ -156,6 +164,14 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
                 "pending": None,
                 "answer": format_order_status(state["order_status"]),
                 "refused": False,
+            }
+        # Refused search stands only when there is no order status to report.
+        if state["grounded_answer"] is not None:
+            return {
+                **usage,
+                "pending": None,
+                "answer": state["grounded_answer"],
+                "refused": True,
             }
         # Non-policy safe fallback (parse failure / explicit fallback text).
         if answer == FALLBACK_ANSWER:

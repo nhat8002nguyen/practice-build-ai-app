@@ -77,11 +77,11 @@ def merge_hybrid(
     dense_weight: float,
     k: int,
 ) -> list[tuple[str, float]]:
-    """Weighted sum of dense and sparse scores on [0, 1].
+    """Merge dense and sparse scores on [0, 1].
 
-    A hit present in only one channel keeps that channel's score (not scaled by the
-    missing side's weight), so a perfect sparse-only or dense-only match scores 1.0
-    and can clear the retrieval refusal gate.
+    A hit present in only one channel keeps that channel's score. When both channels
+    hit, the score is max(dense, sparse, weighted sum) so a weak second channel cannot
+    pull a single-channel clearance under the retrieval refusal gate.
     """
     dense_scores = dict(dense)
     sparse_scores = dict(sparse)
@@ -90,10 +90,10 @@ def merge_hybrid(
         has_dense = doc_id in dense_scores
         has_sparse = doc_id in sparse_scores
         if has_dense and has_sparse:
-            combined[doc_id] = (
-                dense_weight * dense_scores[doc_id]
-                + (1 - dense_weight) * sparse_scores[doc_id]
-            )
+            dense_score = dense_scores[doc_id]
+            sparse_score = sparse_scores[doc_id]
+            weighted = dense_weight * dense_score + (1 - dense_weight) * sparse_score
+            combined[doc_id] = max(dense_score, sparse_score, weighted)
         elif has_dense:
             combined[doc_id] = dense_scores[doc_id]
         else:

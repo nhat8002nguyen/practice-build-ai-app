@@ -10,16 +10,32 @@ def test_hybrid_merge_prefers_agreement():
     merged = merge_hybrid(dense, sparse, dense_weight=0.7, k=2)
 
     assert merged[0][0] == "a"
-    assert merged[0][1] == pytest.approx(0.7 * 0.9 + 0.3 * 0.8)
+    assert merged[0][1] == pytest.approx(0.9)
     assert len(merged) == 2
 
 
-def test_hybrid_merge_weight_shifts_ranking():
-    dense = [("a", 0.9), ("b", 0.4)]
-    sparse = [("a", 0.4), ("b", 0.9)]
+def test_hybrid_merge_both_present_keeps_clearing_channel_score():
+    dense = [("sku", 0.4)]
+    sparse = [("sku", 0.2)]
 
-    assert merge_hybrid(dense, sparse, dense_weight=0.8, k=1)[0][0] == "a"
-    assert merge_hybrid(dense, sparse, dense_weight=0.2, k=1)[0][0] == "b"
+    merged = merge_hybrid(dense, sparse, dense_weight=0.7, k=1)
+
+    assert merged[0][1] == pytest.approx(0.4)
+    assert merged[0][1] >= 0.35
+
+
+def test_hybrid_merge_ranks_by_stronger_channel_when_both_present():
+    dense = [("a", 0.9), ("b", 0.4)]
+    sparse = [("a", 0.4), ("b", 0.95)]
+
+    assert merge_hybrid(dense, sparse, dense_weight=0.8, k=1)[0] == (
+        "b",
+        pytest.approx(0.95),
+    )
+    assert merge_hybrid(dense, sparse, dense_weight=0.2, k=1)[0] == (
+        "b",
+        pytest.approx(0.95),
+    )
 
 
 def test_hybrid_merge_handles_empty_inputs():

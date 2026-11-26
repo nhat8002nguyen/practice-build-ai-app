@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agents.graph import FALLBACK_ANSWER, MAX_ASSISTANT_STEPS, format_order_status
+from app.agents.graph import (
+    FALLBACK_ANSWER,
+    HITL_PLACEHOLDER,
+    MAX_ASSISTANT_STEPS,
+    format_order_status,
+)
 from app.agents.runner import get_checkpointer
 from app.rag.generate import REFUSAL_TEXT
 
@@ -98,7 +103,7 @@ def test_agent_escalates_when_order_missing(client, register_user, script, monke
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "awaiting_human"
-    assert body["answer"] == "I could not find that order, a human will follow up."
+    assert body["answer"] == HITL_PLACEHOLDER
     assert body["ticket_id"]
     assert '"found": false' in llm.calls[1][1][-1]["content"]
 
@@ -334,6 +339,56 @@ def test_successful_lookup_does_not_unlock_ungrounded_final(
         }
     )
     assert body["citations"] == []
+
+
+def test_refused_search_does_not_mask_order_status(
+    client, register_user, script, monkeypatch
+):
+    monkeypatch.setenv("ORDER_STUB_MODE", "hit")
+    script(
+        tool("search_knowledge", query="refund policy"),
+        tool("lookup_order", order_id="ORD-1"),
+        final("Refunds are available for 90 days."),
+    )
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "Where is order ORD-1?"
+    ).json()
+
+    assert body["status"] == "answered"
+    assert body["refused"] is False
+    assert body["answer"] == format_order_status(
+        {
+            "found": True,
+            "order_id": "ORD-1",
+            "status": "shipped",
+            "carrier": "DemoExpress",
+            "eta_days": 3,
+        }
+    )
+
+
+def test_hitl_draft_does_not_surface_invented_policy(
+    client, register_user, script, monkeypatch
+):
+    monkeypatch.setenv("ORDER_STUB_MODE", "miss")
+    invented = "Refunds are available for 90 days."
+    script(
+        tool("lookup_order", order_id="ORD-404"),
+        tool("create_ticket", reason="Order ORD-404 not found", priority="high"),
+        final(invented),
+    )
+    headers = register_user()
+
+    body = ask_agent(
+        client, headers, new_session(client, headers), "Where is order ORD-404?"
+    ).json()
+
+    assert body["status"] == "awaiting_human"
+    assert body["answer"] == HITL_PLACEHOLDER
+    assert body["answer"] != invented
+    assert body["refused"] is False
 
 
 def test_missed_lookup_final_without_ticket_is_grounded(

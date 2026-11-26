@@ -456,13 +456,24 @@ def test_missed_lookup_final_without_ticket_is_grounded(
     assert body["citations"] == []
 
 
-def test_agent_loop_is_bounded(client, register_user, script, llm):
+def test_agent_loop_is_bounded(client, register_user, script, llm, monkeypatch):
+    monkeypatch.setenv("ORDER_STUB_MODE", "hit")
     script(*[tool("lookup_order", order_id="ORD-1")] * 20)
     headers = register_user()
 
     body = ask_agent(client, headers, new_session(client, headers), "loop").json()
 
-    assert body["answer"] == FALLBACK_ANSWER
+    assert body["answer"] == format_order_status(
+        {
+            "found": True,
+            "order_id": "ORD-1",
+            "status": "shipped",
+            "carrier": "DemoExpress",
+            "eta_days": 3,
+        }
+    )
+    assert body["citations"] == []
+    assert body["refused"] is False
     assert len(llm.calls) == MAX_ASSISTANT_STEPS
 
 

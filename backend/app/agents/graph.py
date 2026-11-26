@@ -99,14 +99,13 @@ def _parse_action(text: str) -> dict[str, Any]:
 def _apply_search_citations(
     prior: list[dict[str, str]], answers: list[Any]
 ) -> list[dict[str, str]]:
-    """Merge citations across non-refused searches; a refused search replaces the bag."""
+    """Merge citations across non-refused searches; a refused search clears the bag."""
     citations = {c["chunk_id"]: c for c in prior}
     for answer in answers:
-        next_citations = {c.chunk_id: vars(c) for c in answer.citations}
         if answer.refused:
-            citations = next_citations
+            citations = {}
         else:
-            citations.update(next_citations)
+            citations.update({c.chunk_id: vars(c) for c in answer.citations})
     return list(citations.values())
 
 
@@ -146,11 +145,11 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             scratch = [*state["scratch"], {"role": "assistant", "content": result.text}]
             return {**usage, "pending": call, "scratch": scratch}
 
-        # Step budget exhausted on a tool action: stop without inventing policy.
+        # Budget-exhausted tool actions fall through the same cascade as finals.
         if action.get("action") == "tool":
-            return {**usage, "pending": None, "answer": FALLBACK_ANSWER}
-
-        answer = str(action.get("answer") or "").strip() or FALLBACK_ANSWER
+            answer = FALLBACK_ANSWER
+        else:
+            answer = str(action.get("answer") or "").strip() or FALLBACK_ANSWER
         # HITL draft: never free-form model text; grounded reply or safe placeholder.
         if state["ticket_id"]:
             if state["grounded_answer"] is not None and not state["refused"]:
@@ -160,7 +159,12 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
                     "answer": state["grounded_answer"],
                     "refused": False,
                 }
-            return {**usage, "pending": None, "answer": HITL_PLACEHOLDER}
+            return {
+                **usage,
+                "pending": None,
+                "answer": HITL_PLACEHOLDER,
+                "citations": [],
+            }
         # Prefer non-refused grounded policy over order stub or refusal.
         if state["grounded_answer"] is not None and not state["refused"]:
             return {
@@ -176,6 +180,7 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
                 "pending": None,
                 "answer": format_order_status(state["order_status"]),
                 "refused": False,
+                "citations": [],
             }
         # Refused search stands only when there is no order status to report.
         if state["grounded_answer"] is not None:
@@ -184,10 +189,16 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
                 "pending": None,
                 "answer": state["grounded_answer"],
                 "refused": True,
+                "citations": [],
             }
-        # Non-policy safe fallback (parse failure / explicit fallback text).
+        # Non-policy safe fallback (parse failure / explicit fallback text / budget).
         if answer == FALLBACK_ANSWER:
-            return {**usage, "pending": None, "answer": FALLBACK_ANSWER}
+            return {
+                **usage,
+                "pending": None,
+                "answer": FALLBACK_ANSWER,
+                "citations": [],
+            }
         # No grounding yet: same retrieve + citation/refusal path as RAG mode.
         return await _ground_with_search(state, usage)
 
@@ -247,6 +258,7 @@ def build_graph(ctx: ToolContext, llm: LLM, checkpointer: BaseCheckpointSaver):
             return {
                 "answer": resolution_message(state["decision"], state["note"]),
                 "refused": False,
+                "citations": [],
             }
         return {}
 
